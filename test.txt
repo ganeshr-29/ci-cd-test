@@ -1,6 +1,2 @@
-Hi, This is Pinkman 
-demo123
-
-status check
-
-test oring pr dev to prod
+Hi, This is Pinkman.
+Testing triggers
