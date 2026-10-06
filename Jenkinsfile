@@ -18,41 +18,22 @@ pipeline {
         //     }
         // }
 
-        stage('Trufflehog Secret Scan') {
-    steps {
-        script {
-            // Run Trufflehog with all detectors enabled, concurrency optimizations, and a JSON output dump
-            // We capture the status code so we can decide whether to break the build *after* archiving the artifact
-            int scanStatus = sh(
-                script: '''
-                docker run --rm -v ${WORKSPACE}:/pwd trufflesecurity/trufflehog:latest filesystem \
-                  --no-verification \
-                  --include-detectors=all \
-                  --concurrency=4 \
-                  --json \
-                  /pwd > ${WORKSPACE}/trufflehog-report.json
-                ''',
-                returnStatus: true
-            )
-            
-            // Log the result status to the console log
-            echo "Trufflehog scan completed with status code: ${scanStatus}"
-            
-            // If secrets were found (exit code 1), we can conditionally flag or fail the pipeline later
-            if (scanStatus != 0) {
-                echo "⚠️ WARNING: Potential secrets or hardcoded passwords discovered in the workspace!"
-                // Uncomment the line below if you want the Jenkins build to explicitly FAIL when secrets are found:
-                // error("Pipeline aborted due to secrets found during security scan.")
+    stage('Trufflehog Secret Scan') {
+        steps {
+            // We use the 'git' engine instead of 'filesystem'
+            // This forces Trufflehog to look at your commits and find high-entropy text automatically
+            sh '''
+            docker run --rm -v ${WORKSPACE}:/pwd trufflesecurity/trufflehog:latest git file:///pwd --no-verification --json > ${WORKSPACE}/trufflehog-report.json || true
+            '''
+        }
+        post {
+            always {
+                archiveArtifacts artifacts: 'trufflehog-report.json', allowEmptyArchive: true
             }
         }
     }
-    post {
-        always {
-            // Guarantees the JSON file is uploaded to the Jenkins UI for analysis regardless of scan success/failure
-            archiveArtifacts artifacts: 'trufflehog-report.json', allowEmptyArchive: true
-        }
-    }
-}
+
+    
 
 
         stage('Checkout') {
