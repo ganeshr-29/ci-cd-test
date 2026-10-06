@@ -7,11 +7,11 @@ pipeline {
     }
 
     stages {
-        stage('Clean Workspace') {
-            steps {
-                cleanWs()
-            }
-        }
+        // stage('Clean Workspace') {
+        //     steps {
+        //         cleanWs()
+        //     }
+        // }
 
         stage('Gitleaks Secret Scan') {
             steps {
