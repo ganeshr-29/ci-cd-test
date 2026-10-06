@@ -65,17 +65,17 @@ pipeline {
                 echo 'Deploying application to the server...'
             }
         }
+    }
 
-        post {
-            always {
-                echo 'Pipeline has finished executing.'
+    post {
+        always {
+            echo 'Pipeline has finished executing.'
             }
-            success {
-                echo 'Build completed successfully! 🎉'
-            }
-            failure {
-                echo 'Build failed. Please check the logs. ❌'
-            }
+        success {
+            echo 'Build completed successfully! 🎉'
+        }
+        failure {                
+            echo 'Build failed. Please check the logs. ❌'
         }
     }
 }
