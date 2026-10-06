@@ -10,3 +10,4 @@ RUN useradd -m backend && chown -R backend:backend /app
 USER backend
 EXPOSE 5000
 CMD ["python3", "/app/app.py"]
+

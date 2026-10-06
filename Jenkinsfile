@@ -1,44 +1,45 @@
-// @Library('devops-shared-pipeline') _
-// runProductionWorkflow()
 pipeline {
-    agent any
-
-    options {
-        disableConcurrentBuilds()
-        timeout(time: 1, unit: 'HOURS')
-    }
+    agent any 
 
     stages {
-        // SCENARIO 1: Developer creates a PR targeting the dev branch
-        stage('PR Validation (dev)') {
-            when {
-                expression { env.CHANGE_TARGET == 'dev' }
-            }
+        stage('Checkout') {
             steps {
-                echo "🔨 Validating Pull Request #${env.CHANGE_ID}"
-                echo "Running code tests, linters, and security scans..."
-                // Example: sh 'npm run test' or 'mvn test'
+                echo 'Checking out source code from GitHub...'
+                // Jenkins automatically clones your repo if this file is run via "Pipeline from SCM"
             }
         }
 
-        // SCENARIO 2: Merged changes pushed/merged into the prod branch
-        stage('Deploy to Production') {
-            when {
-                branch 'prod'
-            }
+        stage('Build') {
             steps {
-                echo "🚀 Deploying to Production environment..."
-                // Example: sh './deploy-prod.sh'
+                echo 'Building the application...'
+                // Example for Node.js: sh 'npm install'
+                // Example for Java/Maven: sh 'mvn clean package'
+            }
+        }
+
+        stage('Test') {
+            steps {
+                echo 'Running automated tests...'
+                // Example: sh 'npm test' or sh 'mvn test'
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                echo 'Deploying application to the server...'
             }
         }
     }
 
     post {
+        always {
+            echo 'Pipeline has finished executing.'
+        }
         success {
-            echo "✅ Stage executed successfully. Notifying Git provider."
+            echo 'Build completed successfully! 🎉'
         }
         failure {
-            echo "❌ Pipeline failed. Please check Jenkins logs."
+            echo 'Build failed. Please check the logs. ❌'
         }
     }
 }
