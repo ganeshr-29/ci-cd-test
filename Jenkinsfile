@@ -23,7 +23,7 @@ pipeline {
                 // Runs Trufflehog container against the checked-out workspace folder
                 // Generates a JSON report for Jenkins to archive
                 sh '''
-                docker run --rm -v ${WORKSPACE}:/pwd trufflesecurity/trufflehog:latest filesystem --only-verified=false /pwd --json > ${WORKSPACE}/trufflehog-report.json || true
+                docker run --rm -v ${WORKSPACE}:/pwd trufflesecurity/trufflehog:latest filesystem --no-verification /pwd --json > ${WORKSPACE}/trufflehog-report.json || true
                 '''
             }
             post {
