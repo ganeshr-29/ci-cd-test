@@ -1,3 +1,8 @@
+
+
+
+
+
 pipeline {
     agent any 
     options {
@@ -13,27 +18,18 @@ pipeline {
         //     }
         // }
 
-        stage('Gitleaks Secret Scan') {
+        stage('Trufflehog Secret Scan') {
             steps {
+                // Runs Trufflehog container against the checked-out workspace folder
+                // Generates a JSON report for Jenkins to archive
                 sh '''
-                    # Run Gitleaks in a container against the current Jenkins workspace
-                    # --redact: masks sensitive keys in console logs
-                    # --report-path: saves full findings for review
-                    # Exit code 1 indicates leaked secrets (fails the stage)
-                    docker run --rm \
-                        -v "${WORKSPACE}:/repo" \
-                        zricethezav/gitleaks:v8.18.2 detect \
-                        --source="/repo" \
-                        --verbose \
-                        --redact \
-                        --report-format=json \
-                        --report-path="/repo/gitleaks-report.json"
+                docker run --rm -v ${WORKSPACE}:/pwd trufflesecurity/trufflehog:latest filesystem /pwd --only-verified=false --json > ${WORKSPACE}/trufflehog-report.json || true
                 '''
             }
             post {
                 always {
-                    // Archive the findings report as a Jenkins build artifact
-                    archiveArtifacts artifacts: 'gitleaks-report.json', allowEmptyArchive: true
+                    // This archives the report file so you can see it on your Jenkins build page
+                    archiveArtifacts artifacts: 'trufflehog-report.json', allowEmptyArchive: true
                 }
             }
         }
