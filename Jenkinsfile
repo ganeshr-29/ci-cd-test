@@ -1,8 +1,3 @@
-
-
-
-
-
 pipeline {
     agent any 
     options {
@@ -12,30 +7,6 @@ pipeline {
     }
 
     stages {
-        // stage('Clean Workspace') {
-        //     steps {
-        //         cleanWs()
-        //     }
-        // }
-
-    stage('Trufflehog Secret Scan') {
-        steps {
-            // We use the 'git' engine instead of 'filesystem'
-            // This forces Trufflehog to look at your commits and find high-entropy text automatically
-            sh '''
-            docker run --rm -v ${WORKSPACE}:/pwd trufflesecurity/trufflehog:latest git file:///pwd --no-verification --json > ${WORKSPACE}/trufflehog-report.json || true
-            '''
-        }
-        post {
-            always {
-                archiveArtifacts artifacts: 'trufflehog-report.json', allowEmptyArchive: true
-            }
-        }
-    }
-
-    
-
-
         stage('Checkout') {
             steps {
                 echo 'Checking out source code from GitHub...'
@@ -43,18 +14,16 @@ pipeline {
             }
         }
 
-        stage('Build') {
+        stage('SAST - SonarQube Analysis') {
             steps {
-                echo 'Building the application...'
-                // Example for Node.js: sh 'npm install'
-                // Example for Java/Maven: sh 'mvn clean package'
-            }
-        }
+                echo 'Starting SonarQube SAST scan...'
+                script {
+                    def scannerHome = tool 'SonarScanner'
 
-        stage('Test') {
-            steps {
-                echo 'Running automated tests...'
-                // Example: sh 'npm test' or sh 'mvn test'
+                    withSonarQubeEnv('demo_sonarqube') {
+                        sh "${scannerHome}/bin/sonar-scanner"
+                    }
+                }
             }
         }
 
@@ -63,8 +32,13 @@ pipeline {
                 echo 'Deploying application to the server...'
             }
         }
-    }
 
+        // stage('Clean Workspace') {
+        //     steps {
+        //         cleanWs()
+        //     }
+        // }
+    }
     post {
         always {
             echo 'Pipeline has finished executing.'
