@@ -1,47 +1,96 @@
-// @Library('devops-shared-pipeline') _
-// runProductionWorkflow()
-
-
-
 pipeline {
-    agent any
-
+    agent any 
     options {
+        timeout(time: 30, unit: 'MINUTES')
+        timestamps()
         disableConcurrentBuilds()
-        timeout(time: 1, unit: 'HOURS')
+    }
+    environment {
+        GITHUB_TOKEN = credentials('github-token-auth-pvt')
     }
 
     stages {
-        // SCENARIO 1: Developer creates a PR targeting the dev branch
-        stage('PR Validation (dev)') {
-            when {
-                expression { env.CHANGE_TARGET == 'dev' }
-            }
+        stage('Checkout') {
             steps {
-                echo "🔨 Validating Pull Request #${env.CHANGE_ID}"
-                echo "Running code tests, linters, and security scans..."
-                // Example: sh 'npm run test' or 'mvn test'
+                echo 'Checking out source code from GitHub...'
+                // Jenkins automatically clones your repo if this file is run via "Pipeline from SCM"
             }
         }
 
-        // SCENARIO 2: Merged changes pushed/merged into the prod branch
-        stage('Deploy to Production') {
-            when {
-                branch 'prod'
-            }
+        stage('SAST - SonarQube Analysis') {
             steps {
-                echo "🚀 Deploying to Production environment..."
-                // Example: sh './deploy-prod.sh'
+                echo 'Starting SonarQube SAST scan...'
+                script {
+                    def scannerHome = tool 'SonarScanner'
+
+                    withSonarQubeEnv('demo_sonarqube') {
+                        sh "${scannerHome}/bin/sonar-scanner"
+                    }
+                }
             }
         }
+
+        stage('Quality Gate Check') {
+            steps {
+                timeout(time: 3, unit: 'MINUTES') {
+                    script {
+                        // Pauses pipeline until SonarQube finishes computing and sends the webhook callback
+                        // def qg = waitForQualityGate()
+                        // echo "SonarQube Quality Gate Status: ${qg.status}"
+
+                        // if (qg.status != 'OK') {
+                        //     error "Pipeline stopped: SonarQube Quality Gate failed with status: ${qg.status}"
+                        // }
+
+                        def qg = waitForQualityGate()
+
+                        if (qg.status != 'OK') {
+                            updateGithubStatus('failure', 'Quality Gate failed - click Details to view errors')
+                            error "Quality Gate failed: ${qg.status}"
+                        } else {
+                            updateGithubStatus('success', 'Quality Gate passed cleanly')
+                        }
+                    }
+                }
+            }
+        }
+
+
+        // stage('Clean Workspace') {
+        //     steps {
+        //         cleanWs()
+        //     }
+        // }
     }
-
     post {
+        always {
+            echo 'Pipeline has finished executing.'
+            }
         success {
-            echo "✅ Stage executed successfully. Notifying Git provider."
+            echo 'Build completed successfully! 🎉'
         }
-        failure {
-            echo "❌ Pipeline failed. Please check Jenkins logs."
+        failure {                
+            echo 'Build failed. Please check the logs. ❌'
         }
     }
+}
+
+
+def updateGithubStatus(String state, String description) {
+    def commitSha = env.GIT_COMMIT ?: sh(returnStdout: true, script: 'git rev-parse HEAD').trim()
+    def remoteUrl = sh(returnStdout: true, script: 'git config --get remote.origin.url').trim()
+    def repoSlug  = (remoteUrl =~ /github\.com[:\/]([A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+?)(?:\.git)?$/)[0][1]
+
+    sh """
+        curl -s -X POST \
+            -H "Authorization: token ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/${repoSlug}/statuses/${commitSha}" \
+            -d '{
+                "state": "${state}",
+                "target_url": "${env.SONAR_URL}",
+                "description": "${description}",
+                "context": "SonarQube Quality Gate"
+            }'
+    """
 }
