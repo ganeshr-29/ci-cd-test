@@ -5,6 +5,9 @@ pipeline {
         timestamps()
         disableConcurrentBuilds()
     }
+    environment {
+        GITHUB_TOKEN = credentials('github-token-auth-pvt')
+    }
 
     stages {
         stage('Checkout') {
